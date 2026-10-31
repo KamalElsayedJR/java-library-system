@@ -1,4 +1,4 @@
-enum MemberType {
+public enum MemberType {
     STUDENT(2, 14),
     STAFF(5, 30);
 
@@ -10,11 +10,6 @@ enum MemberType {
         this.loanDays = loanDays;
     }
 
-    public int maxLoans() {
-        return maxLoans;
-    }
-
-    public int loanDays() {
-        return loanDays;
-    }
+    public int maxLoans() { return maxLoans; }
+    public int loanDays() { return loanDays; }
 }
