@@ -27,40 +27,28 @@ public class Library {
         return Optional.ofNullable(books.get(isbn));
     }
 
-    // TODO: every method below. Use streams, Optional and records. The tests in LibraryTest describe the behaviour.
-
-    // All books sorted by title.
     public List<Book> allBooksByTitle() {
-        return books.values().stream()
-                .sorted(Comparator.comparing(Book::title))
-                .toList();
+        return books.values().stream().sorted(Comparator.comparing(Book::title)).toList();
     }
 
-    // Books whose title or author contains the text, ignoring case, sorted by title.
     public List<Book> search(String text) {
         String needle = text.toLowerCase();
         return allBooksByTitle().stream()
-                .filter(book -> book.title().toLowerCase().contains(needle)
-                        || book.author().toLowerCase().contains(needle))
+                .filter(b -> b.title().toLowerCase().contains(needle) || b.author().toLowerCase().contains(needle))
                 .toList();
     }
 
-    // Author -> titles (sorted). Authors in alphabetical order (TreeMap::new).
     public Map<String, List<String>> titlesByAuthor() {
         return books.values().stream()
                 .collect(Collectors.groupingBy(Book::author, TreeMap::new,
-                        Collectors.mapping(Book::title,
-                                Collectors.collectingAndThen(Collectors.toList(),
-                                        titles -> titles.stream().sorted().toList()))));
+                        Collectors.mapping(Book::title, Collectors.collectingAndThen(Collectors.toList(), l -> l.stream().sorted().toList()))));
     }
 
-    // Genre -> number of books. Genres in alphabetical order.
     public Map<String, Long> countByGenre() {
         return books.values().stream()
                 .collect(Collectors.groupingBy(Book::genre, TreeMap::new, Collectors.counting()));
     }
 
-    // The n oldest books, oldest first (ties by title).
     public List<Book> oldestBooks(int n) {
         return books.values().stream()
                 .sorted(Comparator.comparingInt(Book::year).thenComparing(Book::title))
@@ -68,42 +56,29 @@ public class Library {
                 .toList();
     }
 
-    // True if no active loan exists for this ISBN.
     public boolean isAvailable(String isbn) {
-        return loans.stream().noneMatch(loan -> loan.isActive() && loan.isbn().equals(isbn));
+        return loans.stream().noneMatch(l -> l.isActive() && l.isbn().equals(isbn));
     }
 
     public long activeLoans(int memberId) {
-        return loans.stream()
-                .filter(loan -> loan.isActive() && loan.memberId() == memberId)
-                .count();
+        return loans.stream().filter(l -> l.isActive() && l.memberId() == memberId).count();
     }
 
-    // Throws LibraryException when: the book or member does not exist ("No book with ISBN 999"),
-    // the book is already borrowed ("Dune is already borrowed"), or the member is at the limit.
-    // Due date = today + member.type().loanDays().
     public Loan borrow(String isbn, int memberId, LocalDate today) {
-        Book book = findBook(isbn)
-                .orElseThrow(() -> new LibraryException("No book with ISBN " + isbn));
+        Book book = findBook(isbn).orElseThrow(() -> new LibraryException("No book with ISBN " + isbn));
         Member member = Optional.ofNullable(members.get(memberId))
                 .orElseThrow(() -> new LibraryException("No member with id " + memberId));
-
         if (!isAvailable(isbn)) {
             throw new LibraryException(book.title() + " is already borrowed");
         }
-
         if (activeLoans(memberId) >= member.type().maxLoans()) {
-            throw new LibraryException(member.name() + " reached the limit of "
-                    + member.type().maxLoans() + " books");
+            throw new LibraryException(member.name() + " reached the limit of " + member.type().maxLoans() + " books");
         }
-
-        Loan loan = new Loan(isbn, memberId, today,
-                today.plusDays(member.type().loanDays()), null);
+        Loan loan = new Loan(isbn, memberId, today, today.plusDays(member.type().loanDays()), null);
         loans.add(loan);
         return loan;
     }
 
-    // Replaces the active loan with a returned copy. Throws LibraryException if the book is not on loan.
     public void returnBook(String isbn, LocalDate today) {
         for (int i = 0; i < loans.size(); i++) {
             Loan loan = loans.get(i);
@@ -115,10 +90,7 @@ public class Library {
         throw new LibraryException("Book " + isbn + " is not on loan");
     }
 
-    // Active loans whose due date is before today.
     public List<Loan> overdue(LocalDate today) {
-        return loans.stream()
-                .filter(loan -> loan.isOverdue(today))
-                .toList();
+        return loans.stream().filter(l -> l.isOverdue(today)).toList();
     }
 }
