@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: library-api
+  datasource:
+    url: jdbc:postgresql://localhost:5433/library
+    username: library
+    password: library
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_batch_fetch_size: 20
+  docker:
+    compose:
+      lifecycle-management: start-only
+
+library:
+  max-active-loans: 3          # a member may borrow at most 3 books at a time
+  loan-days: 14
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    com.flairs: DEBUG
+    org.hibernate.SQL: DEBUG
