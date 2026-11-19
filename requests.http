@@ -1,0 +1,50 @@
+### Session 11 Lab: Library API on PostgreSQL (run with the IntelliJ HTTP client or VS Code REST Client)
+@base = http://localhost:8080/api
+
+### Paged search, filtered by author, newest first
+GET {{base}}/books?author=orwell&page=0&size=5&sort=year,desc
+
+### One author's books (JOIN FETCH, one query)
+GET {{base}}/authors/1/books
+
+### Create an author
+POST {{base}}/authors
+Content-Type: application/json
+
+{ "name": "Naguib Mahfouz" }
+
+### Create a book for that author (use the id from the previous answer)
+POST {{base}}/books
+Content-Type: application/json
+
+{ "title": "Palace Walk", "isbn": "9780385264662", "year": 1956, "copies": 2, "authorId": 5 }
+
+### Validation errors -> 400 with an "errors" map
+POST {{base}}/books
+Content-Type: application/json
+
+{ "title": "", "isbn": "12", "year": 1000, "copies": -1 }
+
+### Borrow: 201, due date = today + 14
+POST {{base}}/loans
+Content-Type: application/json
+
+{ "bookId": 1, "memberId": 1 }
+
+### Borrow again: Sara now hits the max of 3 active loans -> 409 on the third try
+POST {{base}}/loans
+Content-Type: application/json
+
+{ "bookId": 3, "memberId": 1 }
+
+### Sara's loans (book, author and member in one SELECT)
+GET {{base}}/members/1/loans
+
+### Return a loan, then try again -> 409
+PATCH {{base}}/loans/1/return
+
+### Delete a book that has loan history -> 409 (the foreign key protects the history)
+DELETE {{base}}/books/2
+
+### Delete a book that was never borrowed -> 204
+DELETE {{base}}/books/6

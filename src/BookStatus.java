@@ -1,4 +1,0 @@
-enum BookStatus {
-    AVAILABLE,
-    BORROWED
-}
