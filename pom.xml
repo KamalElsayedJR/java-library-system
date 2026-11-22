@@ -15,7 +15,7 @@
   <artifactId>library-api</artifactId>
   <version>0.0.1-SNAPSHOT</version>
   <name>library-api</name>
-  <description>Session 11 Lab: Library API on PostgreSQL with JPA and Flyway</description>
+  <description>Session 12 Lab: the Library API secured with Spring Security and JWT</description>
 
   <properties>
     <java.version>25</java.version>
@@ -55,6 +55,11 @@
       <scope>runtime</scope>
       <optional>true</optional>
     </dependency>
+    <!-- NEW in Session 12: Spring Security + JWT (resource server = "check the Bearer token on every request") -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.springdoc</groupId>
       <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
@@ -63,6 +68,11 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-webmvc-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security-test</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

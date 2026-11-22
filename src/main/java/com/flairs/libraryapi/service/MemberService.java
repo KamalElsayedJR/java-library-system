@@ -9,7 +9,9 @@ import com.flairs.libraryapi.exception.NotFoundException;
 import com.flairs.libraryapi.model.Member;
 import com.flairs.libraryapi.repository.LoanRepository;
 import com.flairs.libraryapi.repository.MemberRepository;
+import com.flairs.libraryapi.security.CurrentMember;
 import java.util.List;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,22 +21,29 @@ public class MemberService {
 
     private final MemberRepository members;
     private final LoanRepository loans;
+    private final PasswordEncoder passwords;
 
-    public MemberService(MemberRepository members, LoanRepository loans) {
+    public MemberService(MemberRepository members, LoanRepository loans, PasswordEncoder passwords) {
         this.members = members;
         this.loans = loans;
+        this.passwords = passwords;
     }
 
     public List<MemberResponse> findAll() {
         return members.findAll().stream().map(Mapper::toResponse).toList();
     }
 
-    public MemberResponse findById(Long id) {
+    // A member may only see themselves. For anyone else we answer 404, not 403:
+    // 403 would tell a stranger "this member exists".
+    public MemberResponse findById(Long id, CurrentMember caller) {
+        if (!caller.canSee(id)) {
+            throw new NotFoundException("Member", id);
+        }
         return Mapper.toResponse(members.findById(id).orElseThrow(() -> new NotFoundException("Member", id)));
     }
 
-    public List<LoanResponse> loansOf(Long memberId) {
-        if (!members.existsById(memberId)) {
+    public List<LoanResponse> loansOf(Long memberId, CurrentMember caller) {
+        if (!caller.canSee(memberId) || !members.existsById(memberId)) {
             throw new NotFoundException("Member", memberId);
         }
         return loans.findByMemberIdWithDetails(memberId).stream().map(Mapper::toResponse).toList();
@@ -46,6 +55,7 @@ public class MemberService {
         if (members.existsByEmailIgnoreCase(email)) {
             throw new ConflictException("Email " + email + " is already registered");
         }
-        return Mapper.toResponse(members.save(new Member(request.name().trim(), email)));
+        Member member = new Member(request.name().trim(), email, passwords.encode(request.password()));
+        return Mapper.toResponse(members.save(member));
     }
 }

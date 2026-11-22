@@ -1,4 +1,6 @@
 # PostgreSQL for the Library API on host port 5433, so it can run next to the Task API (5432).
+# 'name' gives this lab its own containers and volume, separate from the Session 11 copy.
+name: library-api-s12
 services:
   postgres:
     image: postgres:17

@@ -4,6 +4,7 @@ import com.flairs.libraryapi.config.LibraryProperties;
 import com.flairs.libraryapi.dto.BorrowRequest;
 import com.flairs.libraryapi.dto.LoanResponse;
 import com.flairs.libraryapi.dto.Mapper;
+import com.flairs.libraryapi.exception.BadRequestException;
 import com.flairs.libraryapi.exception.ConflictException;
 import com.flairs.libraryapi.exception.NotFoundException;
 import com.flairs.libraryapi.model.Book;
@@ -12,10 +13,12 @@ import com.flairs.libraryapi.model.Member;
 import com.flairs.libraryapi.repository.BookRepository;
 import com.flairs.libraryapi.repository.LoanRepository;
 import com.flairs.libraryapi.repository.MemberRepository;
+import com.flairs.libraryapi.security.CurrentMember;
 import java.time.Clock;
 import java.time.LocalDate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,82 +43,56 @@ public class LoanService {
         this.clock = clock;
     }
 
-    // TODO 5: borrow a book. Everything below runs in ONE transaction.
-    //  1. load the book and the member (404 if missing)
-    //  2. 409 if every copy is already out   (loans.countByBookIdAndReturnedAtIsNull >= book.getCopies())
-    //  3. 409 if the member already has props.maxActiveLoans() active loans
-    //  4. due date = today (use the clock) + props.loanDays()
-    //  5. save the Loan, log it, return the response
-
+    // Three reads and one insert in ONE transaction: all or nothing.
     @Transactional
-    public LoanResponse borrow(BorrowRequest request) {
-
-        // 1. Load book and member
+    public LoanResponse borrow(BorrowRequest request, CurrentMember caller) {
+        Long memberId = borrowerId(request, caller);
         Book book = books.findById(request.bookId())
-                .orElseThrow(() ->
-                        new NotFoundException("Book", request.bookId()));
+                .orElseThrow(() -> new NotFoundException("Book", request.bookId()));
+        Member member = members.findById(memberId)
+                .orElseThrow(() -> new NotFoundException("Member", memberId));
 
-        Member member = members.findById(request.memberId())
-                .orElseThrow(() ->
-                        new NotFoundException("Member", request.memberId()));
-
-        // 2. Check available copies
-        long activeBookLoans =
-                loans.countByBookIdAndReturnedAtIsNull(book.getId());
-
-        if (activeBookLoans >= book.getCopies()) {
-            throw new ConflictException(
-                    "No available copies for book " + book.getId());
+        long onLoan = loans.countByBookIdAndReturnedAtIsNull(book.getId());
+        if (onLoan >= book.getCopies()) {
+            throw new ConflictException("No copies of '" + book.getTitle() + "' are available");
+        }
+        long active = loans.countByMemberIdAndReturnedAtIsNull(member.getId());
+        if (active >= props.maxActiveLoans()) {
+            throw new ConflictException(member.getName() + " already has " + active + " active loans (max "
+                    + props.maxActiveLoans() + ")");
         }
 
-        // 3. Check member's active loans limit
-        long activeMemberLoans =
-                loans.countByMemberIdAndReturnedAtIsNull(member.getId());
-
-        if (activeMemberLoans >= props.maxActiveLoans()) {
-            throw new ConflictException(
-                    "Member has reached the maximum active loans limit");
-        }
-
-        // 4. Calculate due date using Clock
-        LocalDate dueDate = LocalDate.now(clock)
-                .plusDays(props.loanDays());
-
-        // 5. Create and save loan
-        Loan loan = new Loan(book, member, dueDate);
-
-        Loan savedLoan = loans.save(loan);
-
-        log.info(
-                "Book borrowed successfully. Loan ID: {}, Book ID: {}, Member ID: {}",
-                savedLoan.getId(),
-                book.getId(),
-                member.getId()
-        );
-
-        return Mapper.toResponse(savedLoan);
+        LocalDate due = LocalDate.now(clock).plusDays(props.loanDays());
+        Loan loan = loans.save(new Loan(book, member, due));
+        log.info("Member {} borrowed book {} until {}", member.getId(), book.getId(), due);
+        return Mapper.toResponse(loan);
     }
 
-    // TODO 6: return a book: 404 if the loan is missing, 409 if it was already returned,
-    // otherwise loan.markReturned(). Do you need loans.save(...)? Why not?
+    // A member may only return their own loans. Someone else's loan is "not found" for them.
     @Transactional
-    public LoanResponse giveBack(Long loanId) {
-
-        // 1. Find loan
+    public LoanResponse giveBack(Long loanId, CurrentMember caller) {
         Loan loan = loans.findById(loanId)
-                .orElseThrow(() ->
-                        new NotFoundException("Loan", loanId));
-
-        // 2. Check if already returned
+                .filter(l -> caller.canSee(l.getMember().getId()))
+                .orElseThrow(() -> new NotFoundException("Loan", loanId));
         if (!loan.isActive()) {
-            throw new ConflictException(
-                    "This loan has already been returned");
+            throw new ConflictException("Loan " + loanId + " was already returned");
         }
-
-        // 3. Mark loan as returned
         loan.markReturned();
-
-        // 4. Return response
+        log.info("Loan {} returned", loanId);
         return Mapper.toResponse(loan);
+    }
+
+    private Long borrowerId(BorrowRequest request, CurrentMember caller) {
+        if (caller.isLibrarian()) {
+            if (request.memberId() == null) {
+                throw new BadRequestException("memberId is required for a librarian");
+            }
+            return request.memberId();
+        }
+        // A member borrows for themselves: memberId may be left out, or must be their own id.
+        if (request.memberId() != null && !request.memberId().equals(caller.id())) {
+            throw new AccessDeniedException("A member may only borrow for themselves");
+        }
+        return caller.id();
     }
 }

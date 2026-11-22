@@ -30,12 +30,7 @@ public class BookService {
     }
 
     public PageResponse<BookResponse> search(String author, Pageable pageable) {
-        // TODO 4: findAll ignores the author filter and runs one extra SELECT per book (N+1).
-        // Watch the SQL in the console, then switch to your books.search(author, pageable).
-        return PageResponse.of(
-                books.search(author, pageable),
-                Mapper::toResponse
-        );
+        return PageResponse.of(books.search(author, pageable), Mapper::toResponse);
     }
 
     public BookResponse findById(Long id) {
