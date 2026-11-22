@@ -1,50 +1,112 @@
-### Session 11 Lab: Library API on PostgreSQL (run with the IntelliJ HTTP client or VS Code REST Client)
+### Session 12 Lab: the secured Library API (IntelliJ HTTP client or VS Code REST Client)
+### Every seeded account has the password secret123:
+###   sara@example.com (MEMBER, id 1), omar@example.com (MEMBER, id 2), librarian@example.com (LIBRARIAN, id 3)
 @base = http://localhost:8080/api
 
-### Paged search, filtered by author, newest first
-GET {{base}}/books?author=orwell&page=0&size=5&sort=year,desc
+### 1. No token -> 401 with "WWW-Authenticate: Bearer"
+GET {{base}}/books
 
-### One author's books (JOIN FETCH, one query)
-GET {{base}}/authors/1/books
+### 2. Wrong password -> 401, same message as an unknown email
+POST {{base}}/auth/login
+Content-Type: application/json
 
-### Create an author
+{ "email": "sara@example.com", "password": "wrong-password" }
+
+### 3. Log in as Sara and keep the token
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "sara@example.com", "password": "secret123" }
+
+> {% client.global.set("sara", response.body.accessToken); %}
+
+### 4. Log in as the librarian and keep the token
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "librarian@example.com", "password": "secret123" }
+
+> {% client.global.set("librarian", response.body.accessToken); %}
+
+### 5. Who am I?
+GET {{base}}/auth/me
+Authorization: Bearer {{sara}}
+
+### 6. Any member may read the catalogue -> 200
+GET {{base}}/books?author=orwell
+Authorization: Bearer {{sara}}
+
+### 7. ... but not change it -> 403
 POST {{base}}/authors
+Authorization: Bearer {{sara}}
 Content-Type: application/json
 
-{ "name": "Naguib Mahfouz" }
+{ "name": "Sara's favourite author" }
 
-### Create a book for that author (use the id from the previous answer)
-POST {{base}}/books
+### 8. The librarian may -> 201
+POST {{base}}/authors
+Authorization: Bearer {{librarian}}
 Content-Type: application/json
 
-{ "title": "Palace Walk", "isbn": "9780385264662", "year": 1956, "copies": 2, "authorId": 5 }
+{ "name": "Radwa Ashour" }
 
-### Validation errors -> 400 with an "errors" map
-POST {{base}}/books
-Content-Type: application/json
-
-{ "title": "", "isbn": "12", "year": 1000, "copies": -1 }
-
-### Borrow: 201, due date = today + 14
+### 9. Sara borrows for herself (no memberId needed) -> 201
 POST {{base}}/loans
+Authorization: Bearer {{sara}}
 Content-Type: application/json
 
-{ "bookId": 1, "memberId": 1 }
+{ "bookId": 1 }
 
-### Borrow again: Sara now hits the max of 3 active loans -> 409 on the third try
+### 10. Sara tries to borrow for Omar -> 403
 POST {{base}}/loans
+Authorization: Bearer {{sara}}
 Content-Type: application/json
 
-{ "bookId": 3, "memberId": 1 }
+{ "bookId": 3, "memberId": 2 }
 
-### Sara's loans (book, author and member in one SELECT)
+### 11. The librarian borrows for Omar at the desk -> 201
+POST {{base}}/loans
+Authorization: Bearer {{librarian}}
+Content-Type: application/json
+
+{ "bookId": 3, "memberId": 2 }
+
+### 12. The librarian forgets memberId -> 400
+POST {{base}}/loans
+Authorization: Bearer {{librarian}}
+Content-Type: application/json
+
+{ "bookId": 5 }
+
+### 13. Sara's own loans -> 200
 GET {{base}}/members/1/loans
+Authorization: Bearer {{sara}}
 
-### Return a loan, then try again -> 409
-PATCH {{base}}/loans/1/return
+### 14. Omar's loans, asked by Sara -> 404 (not 403: a stranger must not learn what exists)
+GET {{base}}/members/2/loans
+Authorization: Bearer {{sara}}
 
-### Delete a book that has loan history -> 409 (the foreign key protects the history)
-DELETE {{base}}/books/2
+### 15. Sara returns Omar's loan -> 404. Use the id from request 11.
+PATCH {{base}}/loans/3/return
+Authorization: Bearer {{sara}}
 
-### Delete a book that was never borrowed -> 204
-DELETE {{base}}/books/6
+### 16. Only the librarian may list all members -> 403 for Sara
+GET {{base}}/members
+Authorization: Bearer {{sara}}
+
+### 17. The librarian creates a member with a first password -> 201 (no password in the answer)
+POST {{base}}/members
+Authorization: Bearer {{librarian}}
+Content-Type: application/json
+
+{ "name": "Nour Adel", "email": "nour@example.com", "password": "welcome123" }
+
+### 18. The new member logs in -> 200
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "nour@example.com", "password": "welcome123" }
+
+### 19. A broken token -> 401
+GET {{base}}/books
+Authorization: Bearer not-a-real-token

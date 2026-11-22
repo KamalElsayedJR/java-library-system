@@ -1,5 +1,6 @@
 package com.flairs.libraryapi.exception;
 
+import com.flairs.libraryapi.auth.InvalidCredentialsException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -10,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;     // you need this for TODO 9
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -43,6 +46,29 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         log.warn("Constraint violation: {}", ex.getMostSpecificCause().getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "The data breaks a database rule");
         problem.setTitle("Conflict");
+        return problem;
+    }
+
+    @ExceptionHandler(BadRequestException.class)
+    public ProblemDetail handleBadRequest(BadRequestException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        problem.setTitle("Invalid request");
+        return problem;
+    }
+
+    // NEW in Session 12. 401 = "who are you?": no token, a bad token, an expired token, or a wrong password.
+    @ExceptionHandler({AuthenticationException.class, InvalidCredentialsException.class})
+    public ResponseEntity<ProblemDetail> handleUnauthenticated(RuntimeException ex) {
+        String detail = ex instanceof InvalidCredentialsException ? ex.getMessage() : "A valid access token is required";
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, detail);
+        problem.setTitle("Unauthorized");
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).header(HttpHeaders.WWW_AUTHENTICATE, "Bearer").body(problem);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ProblemDetail handleForbidden(AccessDeniedException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+        problem.setTitle("Forbidden");
         return problem;
     }
 

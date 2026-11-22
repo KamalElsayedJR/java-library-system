@@ -20,7 +20,7 @@ public final class Mapper {
     }
 
     public static MemberResponse toResponse(Member m) {
-        return new MemberResponse(m.getId(), m.getName(), m.getEmail(), m.getJoinedAt());
+        return new MemberResponse(m.getId(), m.getName(), m.getEmail(), m.getRole().name(), m.getJoinedAt());
     }
 
     public static LoanResponse toResponse(Loan l) {
