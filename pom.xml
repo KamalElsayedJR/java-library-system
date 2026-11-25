@@ -18,7 +18,7 @@
   <description>Session 13 Lab (starter): write the slice tests, the integration tests, the coverage gate and the CI workflow</description>
 
   <properties>
-    <java.version>21</java.version>
+    <java.version>25</java.version>
   </properties>
 
   <dependencies>
