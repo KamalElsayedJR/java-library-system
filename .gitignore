@@ -1,3 +1,4 @@
+
 ### IntelliJ IDEA ###
 out/
 !**/src/main/**/out/
@@ -30,8 +31,7 @@ bin/
 .DS_Store
 
 *.class
-out/
 target/
 .idea/
-.vscode/
 .claude
+*.iml

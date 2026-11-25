@@ -10,7 +10,7 @@ import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;     // you need this for TODO 8
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,8 +31,9 @@ public class MemberController {
         this.service = service;
     }
 
-    @GetMapping
+    // Role check on the method. The URL rules in SecurityConfig are the other way to do it.
     @PreAuthorize("hasRole('LIBRARIAN')")
+    @GetMapping
     public List<MemberResponse> list() {
         return service.findAll();
     }
@@ -47,8 +48,8 @@ public class MemberController {
         return service.loansOf(id, CurrentMember.from(jwt));
     }
 
-    @PostMapping
     @PreAuthorize("hasRole('LIBRARIAN')")
+    @PostMapping
     public ResponseEntity<MemberResponse> create(@Valid @RequestBody CreateMemberRequest request) {
         MemberResponse saved = service.create(request);
         return ResponseEntity.created(URI.create("/api/members/" + saved.id())).body(saved);

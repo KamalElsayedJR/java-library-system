@@ -17,8 +17,7 @@ public record CurrentMember(Long id, String email, Role role) {
     }
 
     // May this caller see data that belongs to the member with this id?
-    // TODO 4: a librarian sees everyone, a member only themselves
     public boolean canSee(Long memberId) {
-        return isLibrarian() || memberId.equals(id);
+        return isLibrarian() || id.equals(memberId);
     }
 }
