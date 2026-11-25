@@ -29,10 +29,11 @@ public class AuthService {
 
     public TokenResponse login(LoginRequest request) {
         Member member = members.findByEmailIgnoreCase(request.email().trim())
-                .orElseThrow(InvalidCredentialsException::new);
-        if (!passwords.matches(request.password(), member.getPasswordHash())) {
-            throw new InvalidCredentialsException();
-        }
+                .filter(m -> passwords.matches(request.password(), m.getPasswordHash()))
+                .orElseThrow(() -> {
+                    log.info("Failed login for {}", request.email());
+                    return new InvalidCredentialsException();
+                });
         log.info("Member {} logged in", member.getId());
         return tokens.issue(member);
     }

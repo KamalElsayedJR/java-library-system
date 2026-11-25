@@ -82,16 +82,17 @@ public class LoanService {
         return Mapper.toResponse(loan);
     }
 
+    // A MEMBER borrows for themselves: memberId may be left out, or must be their own id.
+    // A LIBRARIAN borrows for a member at the desk, so memberId is required.
     private Long borrowerId(BorrowRequest request, CurrentMember caller) {
         if (caller.isLibrarian()) {
             if (request.memberId() == null) {
-                throw new BadRequestException("memberId is required for a librarian");
+                throw new BadRequestException("memberId is required when a librarian borrows for a member");
             }
             return request.memberId();
         }
-        // A member borrows for themselves: memberId may be left out, or must be their own id.
         if (request.memberId() != null && !request.memberId().equals(caller.id())) {
-            throw new AccessDeniedException("A member may only borrow for themselves");
+            throw new AccessDeniedException("Members can only borrow for themselves");
         }
         return caller.id();
     }

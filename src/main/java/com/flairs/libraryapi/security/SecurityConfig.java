@@ -3,7 +3,7 @@ package com.flairs.libraryapi.security;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;     // you need this for TODO 1
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -30,10 +30,9 @@ public class SecurityConfig {
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PUBLIC).permitAll()
-                // GET on the catalogue is for anyone logged in
-                .requestMatchers(HttpMethod.GET, "/api/books/**").authenticated()
-                .requestMatchers(HttpMethod.GET, "/api/authors/**").authenticated()
-                // every other method on those paths only for the librarian
+                // Anyone logged in may read the catalogue ...
+                .requestMatchers(HttpMethod.GET, "/api/books/**", "/api/authors/**").authenticated()
+                // ... but only a librarian may change it
                 .requestMatchers("/api/books/**", "/api/authors/**").hasRole("LIBRARIAN")
                 .anyRequest().authenticated())
             .oauth2ResourceServer(oauth -> oauth
